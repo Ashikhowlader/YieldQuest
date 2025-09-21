@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YieldQuest Mini‑App</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.2.0/dist/ethers.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary-color: #00c300; /* Vibrant Green */
+      --primary-dark: #00a000;
+      --secondary-color: #0088cc; /* Blue for claims */
+      --danger-color: #ff4444;
+      --light-gray: #f8f9fa; /* Lighter background */
+      --medium-gray: #e2e8f0;
+      --dark-gray: #6b7280;
+      --text-dark: #1f2937;
+      --text-light: #ffffff;
+      --card-bg: #ffffff;
+      --card-shadow: 0 4px 10px rgba(0,0,0,0.08); /* Softer shadow */
+      --card-shadow-hover: 0 8px 20px rgba(0,0,0,0.15);
+      --border-radius-lg: 16px;
+      --border-radius-md: 12px;
+      --border-radius-sm: 8px;
+    }
+    body { 
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif; 
+      background: var(--light-gray); 
+      margin: 0; 
+      color: var(--text-dark); 
+      display: flex; 
+      justify-content: center; 
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .app { 
+      max-width: 480px; 
+      width: 100%; 
+      background: var(--light-gray); 
+      display: flex; 
+      flex-direction: column; 
+      box-shadow: 0 0 20px rgba(0,0,0,0.05); /* Overall app shadow */
+    }
+    header { 
+      background: linear-gradient(90deg, #00c300, #00e000); /* Gradient for header */
+      color: var(--text-light); 
+      padding: 1.2rem 1rem; 
+      font-weight: 700; 
+      font-size: 1.3rem; 
+      position: relative; 
+      box-shadow: var(--card-shadow); 
+      z-index: 10; 
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header span { 
+      flex-grow: 1; 
+      text-align: left;
+    }
+    .connect-btn { 
+      background: var(--text-light); 
+      color: var(--primary-color); 
+      border: none; 
+      border-radius: 25px; 
+      padding: 0.5rem 1rem; 
+      font-size: 0.9rem; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .connect-btn:hover { background-color: var(--medium-gray); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .connect-btn.connected { 
+      background: #5a677d; 
+      color: #fff; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); 
+    }
+    .connect-btn.connected:hover { background-color: #4a5468; }
+    .disconnect-btn {
+      background: var(--danger-color);
+      color: var(--text-light);
+      border: none;
+      border-radius: 25px;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-left: 0.5rem;
+    }
+    .disconnect-btn:hover {
+      background-color: #cc0000;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .section { 
+      flex: 1; 
+      padding: 1rem; 
+      display: none; 
+      overflow-y: auto; /* Allow scrolling within sections */
+    }
+    .section.active { display: block; }
+    .card { 
+      background: var(--card-bg); 
+      border-radius: var(--border-radius-lg); 
+      box-shadow: var(--card-shadow); 
+      padding: 1.5rem; 
+      margin: 1rem 0; 
+      transition: box-shadow 0.3s ease; 
+    }
+    .card:hover { box-shadow: var(--card-shadow-hover); }
+    .card h2 { 
+      font-size: 1.2rem; 
+      font-weight: 700; 
+      margin-top: 0; 
+      margin-bottom: 1.5rem; 
+      display: flex; 
+      align-items: center; 
+      gap: 0.6rem; 
+      color: var(--text-dark);
+    }
+    .value { 
+      font-weight: 700; 
+      color: var(--text-dark); 
+      font-size: 1.1rem; 
+    }
+    .stake-buttons { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 0.8rem; /* Increased gap */
+      margin-bottom: 1rem; 
+    }
+    button { 
+      cursor: pointer; 
+      font-weight: 600; 
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* Button shadow */
+    }
+    button:hover:not(:disabled) { 
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15); 
+    }
+    button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    button:disabled { 
+      cursor: not-allowed; 
+      background-color: #cbd5e1 !important; /* Tailwind gray-300 */
+      color: #94a3b8 !important; /* Tailwind gray-400 */
+      opacity: 0.8;
+      box-shadow: none;
+      transform: none;
+    }
+    .btn { 
+      border: none; 
+      border-radius: 25px; /* More rounded */
+      padding: 0.85rem 1rem; 
+      font-size: 0.95rem; 
+      display: flex; /* For loading spinner */
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { 
+      background: var(--primary-color); 
+      color: var(--text-light); 
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-withdraw { 
+      background: none; 
+      color: var(--danger-color); 
+      border: 2px solid var(--danger-color); 
+      border-radius: var(--border-radius-md); 
+      padding: 0.8rem; 
+      font-size: 0.9rem; 
+      width: 100%; 
+      box-shadow: none; /* No shadow for outlined buttons */
+    }
+    .btn-withdraw:hover:not(:disabled) { background-color: rgba(255, 68, 68, 0.08); transform: translateY(-1px); box-shadow: 0 2px 5px rgba(255, 68, 68, 0.2); }
+    .btn-claim { 
+      background: linear-gradient(90deg, var(--secondary-color), #00c3ff); 
+      color: var(--text-light); 
+      border: none; 
+      border-radius: 30px; 
+      padding: 1rem; 
+      font-size: 1rem; 
+      margin-top: 0.7rem; 
+      width: 100%; 
+      box-shadow: 0 4px 10px rgba(0, 136, 204, 0.3); /* Blue shadow */
+    }
+    .btn-claim:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 136, 204, 0.4); }
+    .custom-input { 
+      display: flex; 
+      gap: 0.6rem; /* Increased gap */
+      margin-top: 1rem; 
+    }
+    .custom-input input { 
+      flex: 1; 
+      padding: 0.7rem 0.9rem; 
+      border-radius: var(--border-radius-sm); 
+      border: 1px solid var(--medium-gray); 
+      font-size: 0.95rem; 
+      background-color: #fcfcfc;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .custom-input input:focus { 
+      outline: none; 
+      border-color: var(--primary-color); 
+      box-shadow: 0 0 0 2px rgba(0, 195, 0, 0.2); 
+    }
+    .metric-grid { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 1rem; 
+      margin-top: 1rem; 
+    }
+    .metric { 
+      background: #fafafa; 
+      border-radius: var(--border-radius-md); 
+      padding: 1rem; /* Increased padding */
+      text-align: center; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); 
+      border: 1px solid var(--medium-gray);
+    }
+    .metric span.value { 
+      display: block; 
+      font-size: 1.2rem; /* Larger value */
+      font-weight: 700; 
+      margin-top: 0.4rem; 
+      color: var(--primary-dark); /* Highlight values */
+    }
+    .metric span.value.text-dark {
+      color: var(--text-dark);
+    }
+
+    footer { 
+      display: flex; 
+      justify-content: space-around; 
+      background: var(--card-bg); 
+      border-top: 1px solid var(--medium-gray); 
+      box-shadow: 0 -4px 10px rgba(0,0,0,0.05); 
+      padding: 0.5rem 0;
+    }
+    footer button { 
+      flex: 1; 
+      border: none; 
+      background: none; 
+      padding: 0.8rem; 
+      font-size: 0.9rem; 
+      font-weight: 500; 
+      color: var(--dark-gray); 
+      transition: color 0.2s, border-bottom 0.2s; 
+      border-bottom: 3px solid transparent; /* For active indicator */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+    }
+    footer button.active { 
+      color: var(--primary-color); 
+      font-weight: 700; 
+      border-bottom-color: var(--primary-color); 
+    }
+    footer button svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+    }
+
+    .toast { 
+      visibility: hidden; 
+      min-width: 280px; 
+      background: #333; 
+      color: #fff; 
+      text-align: center; 
+      border-radius: var(--border-radius-md); 
+      padding: 1rem 1.2rem; 
+      position: fixed; 
+      left: 50%; 
+      transform: translateX(-50%);
+      bottom: 40px; 
+      z-index: 1000; 
+      font-size: 0.95rem; 
+      opacity: 0; 
+      transition: opacity 0.3s, bottom 0.3s; 
+      box-shadow: var(--card-shadow-hover); 
+    }
+    .toast.show { 
+      visibility: visible; 
+      opacity: 1; 
+      bottom: 60px; 
+    }
+    .toast.success { background: var(--primary-color); }
+    .toast.error { background: crimson; }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      width: 1em;
+      height: 1em;
+      animation: spin 1s linear infinite;
+      margin-left: 0.5rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Confetti */
+    .confetti { 
+      position: fixed; 
+      width: 10px; height: 10px; 
+      top: -10px; 
+      border-radius: 50%; /* Make confetti round */
+      opacity: 0; /* Start hidden */
+      animation: fall 3s linear forwards; 
+      pointer-events: none; /* Don't block clicks */
+    }
+    @keyframes fall { 
+      0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } 
+    }
+
+    /* AI Chat Specifics */
+    #chatbox { 
+        border:1px solid var(--medium-gray);
+        padding:0.7rem;
+        height:250px; /* Taller chatbox */
+        overflow-y:auto;
+        margin-bottom:0.8rem;
+        background:var(--light-gray);
+        border-radius:var(--border-radius-md);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    #chatbox div {
+        padding: 0.6rem 0.8rem;
+        border-radius: var(--border-radius-sm);
+        max-width: 90%;
+        line-height: 1.4;
+    }
+    #chatbox div.user-msg {
+        background-color: #e3f2fd; /* Light blue for user */
+        align-self: flex-end;
+        border-bottom-right-radius: 2px;
+    }
+    #chatbox div.ai-msg {
+        background-color: #e8f5e9; /* Light green for AI */
+        align-self: flex-start;
+        border-bottom-left-radius: 2px;
+        color: var(--text-dark); /* Ensure text is readable */
+    }
+    #chatbox div.ai-msg img {
+        max-width: 100%;
+        border-radius: var(--border-radius-sm);
+        margin-top: 0.5rem;
+        box-shadow: var(--card-shadow);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span>YieldQuest</span>
+    <div>
+      <button id="connectBtn" class="connect-btn" onclick="connectWallet()">Connect</button>
+      <button id="disconnectBtn" class="disconnect-btn" onclick="disconnectWallet()" style="display: none;">Disconnect</button>
+    </div>
+  </header>
+  
+  <div id="vault" class="section active">
+    <div class="card">
+      <h2>🏦 Vault</h2>
+      <p>Staked: <span class="value" id="staked">0.00</span> USDT</p>
+      <div class="stake-buttons">
+        <button class="btn btn-primary" onclick="stakeOnChain(100, this)" disabled>Stake 100</button>
+        <button class="btn btn-primary" onclick="stakeOnChain(200, this)" disabled>Stake 200</button>
+        <button class="btn btn-primary" onclick="stakeOnChain(500, this)" disabled>Stake 500</button>
+        <button class="btn btn-primary" onclick="stakeOnChain(1000, this)" disabled>Stake 1000</button>
+      </div>
+      <div class="custom-input">
+        <input id="customStake" type="number" placeholder="Enter amount" disabled min="0">
+        <button id="stakeCustomBtn" class="btn btn-primary" onclick="stakeCustom()" disabled>Stake</button>
+      </div>
+      <div class="custom-input">
+        <input id="customWithdraw" type="number" placeholder="Withdraw amount" disabled min="0">
+        <button id="withdrawCustomBtn" class="btn-withdraw" onclick="withdrawCustom()" disabled>Withdraw</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="missions" class="section">
+    <div class="card">
+      <h2>🎯 Missions</h2>
+      <button id="questHold" class="btn btn-primary" style="width:100%; margin-bottom: 0.75rem;" onclick="completeHoldQuest()" disabled>⏳ Hold 24h (+5% APY Boost)</button>
+      <button id="questStake" class="btn btn-primary" style="width:100%; margin-bottom: 0.75rem;" onclick="completeStakeQuest()" disabled>💰 Stake 1000+ (+7% APY Boost)</button>
+      <button id="questLoyalty" class="btn btn-primary" style="width:100%; margin-bottom: 0.75rem;" onclick="completeLoyaltyQuest()" disabled>🗓️ 7-Day Loyalty (+10% APY Boost)</button>
+      <button id="questActive" class="btn btn-primary" style="width:100%;" onclick="completeActiveQuest()" disabled>⚡ Active User (3 claims) (+8% APY Boost)</button>
+    </div>
+  </div>
+  
+  <div id="rewardsTab" class="section">
+    <div class="card">
+      <h2>🎁 Rewards</h2>
+      <p>Pending: <span class="value" id="rewards2">0.0000</span> USDT</p>
+      <button id="claimBtn" class="btn-claim" onclick="claimRewards()" disabled>💸 Claim Rewards</button>
+    </div>
+  </div>
+  
+  <div id="dashboard" class="section">
+    <div class="card">
+      <h2>📊 Dashboard</h2>
+      <p><b>👛 Wallet:</b> <span id="walletAddr" style="font-family: monospace;">Not Connected</span></p>
+      <div class="metric-grid">
+        <div class="metric">💰 Wallet Balance<span id="walletBal" class="value">0.00</span> USDT</div>
+        <div class="metric">🏦 Vault Staked<span id="stakedBal" class="value">0.00</span> USDT</div>
+        <div class="metric">🎁 Pending Rewards<span id="dashRewards" class="value">0.0000</span> USDT</div>
+        <div class="metric">📈 Current APY<span id="currentApy" class="value text-dark">0.00%</span></div>
+        <div class="metric">⏳ Next Reward In<span id="nextRewardTime" class="value text-dark">--</span></div>
+        <div class="metric">🔥 APY Multiplier<span id="apyMultiplier" class="value text-dark">1.00x</span></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="copilot" class="section">
+    <div class="card">
+      <h2>🤖 Copilot</h2>
+      <div id="chatbox"></div>
+      <div class="custom-input">
+        <input id="aiInput" type="text" placeholder="Ask about yield, quests, or even draw something!" onkeydown="if (event.key === 'Enter') { askAI(); }">
+        <button id="sendAiBtn" class="btn btn-primary" onclick="askAI()">Send</button>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <button id="tabVault" class="active" onclick="showTab('vault','tabVault')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 15l-7-3.5V9l7 3.5 7-3.5v4.5L12 17z"/></svg>
+        <span>Vault</span>
+    </button>
+    <button id="tabMissions" onclick="showTab('missions','tabMissions')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15H9v-2h2v2zm0-4H9v-2h2v2zm0-4H9V7h2v2zm3 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
+        <span>Missions</span>
+    </button>
+    <button id="tabRewards" onclick="showTab('rewardsTab','tabRewards')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 11.55s-3.5 1.75-3.5 4.5c0 1.75 1.5 3.5 3.5 3.5s3.5-1.75 3.5-3.5c0-2.75-3.5-4.5-3.5-4.5zm0-9C8.24 2.55 5 5.79 5 9.79c0 4.15 3.57 6.35 7 9.21 3.43-2.86 7-5.06 7-9.21 0-4-3.24-7.24-7-7.24zM12 17.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+        <span>Rewards</span>
+    </button>
+    <button id="tabDash" onclick="showTab('dashboard','tabDash')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 10h-2V6h2v4zm0 8h-2v-6h2v6zM4 20h16V4H4v16zm2-2V6h12v12H6z"/></svg>
+        <span>Dashboard</span>
+    </button>
+    <button id="tabAI" onclick="showTab('copilot','tabAI')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+        <span>AI</span>
+    </button>
+  </footer>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+// --- CONFIGURATION ---
+const CONFIG = {
+    VAULT_ADDRESS: "0xC3A0B5304456EaC195BE12984EC1cc30d3319760",
+    USDT_ADDRESS: "0xb9D271c9d205c1e94EBFfed8583F3FF3Ca3831E8",
+    CHAIN_ID: "0x3e9",
+    VAULT_ABI: [
+        "function deposit(uint256 amount) external",
+        "function withdraw(uint256 amount) external",
+        "function claim() external",
+        "function completeHold24hQuest() external",
+        "function completeStake1000Quest() external",
+        "function completeLoyalty7dQuest() external",
+        "function completeActiveUserQuest() external",
+        "function balanceOf(address user) view returns(uint256)",
+        "function pendingRewards(address user) view returns(uint256)",
+        "function hasCompleted(address user, string quest) view returns(bool)",
+        "function getCurrentBaseAPY() view returns(uint256)", 
+        "function getUserMultiplier(address user) view returns(uint256)"
+    ],
+    USDT_ABI: [
+        "function approve(address spender, uint256 amount) returns (bool)",
+        "function balanceOf(address) view returns (uint256)",
+        "function decimals() view returns (uint8)"
+    ],
+    QUEST_IDS: {
+        HOLD_24H: "HOLD_24H",
+        STAKE_1000: "STAKE_1000",
+        LOYALTY_7D: "LOYALTY_7D",
+        ACTIVE_USER: "ACTIVE_USER"
+    },
+    QUEST_APY_BOOSTS: {
+        HOLD_24H: 5,
+        STAKE_1000: 7,
+        LOYALTY_7D: 10,
+        ACTIVE_USER: 8
+    },
+    BASE_APY: 10
+};
+
+// --- APPLICATION STATE ---
+const state = {
+    provider: null,
+    signer: null,
+    vaultContract: null,
+    usdtContract: null,
+    userAddress: null,
+    decimals: 18, // Default to 18 if fetch fails
+    walletBal: ethers.BigNumber.from(0),
+    stakedBal: ethers.BigNumber.from(0),
+    pendingRewards: ethers.BigNumber.from(0),
+    completedQuests: {},
+    baseApy: CONFIG.BASE_APY,
+    apyMultiplier: 1.00,
+    claimsCount: 0,
+    nextRewardTimestamp: 0
+};
+
+// --- INITIALIZATION & WALLET MANAGEMENT ---
+window.addEventListener('load', initializeApp);
+
+function initializeApp() {
+    // Add a small delay to ensure page is fully loaded
+    setTimeout(() => {
+        console.log("Initializing app...");
+        console.log("Window ethereum:", window.ethereum);
+        
+        if (typeof window.ethereum !== 'undefined') {
+            try {
+                state.provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                
+                // Add event listeners
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', (_chainId) => {
+                    console.log("Chain changed, reloading...");
+                    window.location.reload();
+                });
+                
+                // Check if already connected
+                state.provider.listAccounts().then(accounts => {
+                    console.log("Existing accounts:", accounts);
+                    if (accounts.length > 0) {
+                        connectWallet();
+                    } else {
+                        setDisconnectedUI();
+                        setActionsEnabled(false);
+                    }
+                }).catch(err => {
+                    console.error("Failed to list accounts:", err);
+                    setDisconnectedUI();
+                    setActionsEnabled(false);
+                });
+                
+            } catch (err) {
+                console.error("Failed to initialize provider:", err);
+                showToast("Failed to initialize wallet provider!", "error");
+                setActionsEnabled(false);
+            }
+        } else {
+            console.log("No ethereum provider found");
+            showToast("Please install MetaMask or use a Web3 browser!", "error");
+            setActionsEnabled(false);
+        }
+    }, 100);
+}
+
+async function handleAccountsChanged(accounts) {
+    if (accounts.length === 0) {
+        setDisconnectedUI();
+        setActionsEnabled(false);
+    } else if (state.userAddress !== accounts[0]) {
+        await connectWallet();
+    }
+}
+
+async function connectWallet() {
+    console.log("Connect wallet called");
+    
+    if (!state.provider) {
+        console.log("No provider available");
+        showToast("Please install MetaMask or use a Web3 browser!", "error");
+        return;
+    }
+    
+    try {
+        console.log("Requesting accounts...");
+        
+        // First check if ethereum is available and ready
+        if (typeof window.ethereum === 'undefined') {
+            throw new Error("No Web3 provider found");
+        }
+        
+        // Request account access
+        const accounts = await window.ethereum.request({ 
+            method: 'eth_requestAccounts' 
+        });
+        
+        console.log("Accounts received:", accounts);
+        
+        if (accounts.length === 0) {
+            throw new Error("No accounts found or access denied");
+        }
+
+        // Check network
+        const network = await state.provider.getNetwork();
+        console.log("Current network:", network);
+        console.log("Expected chain ID:", CONFIG.CHAIN_ID);
+        
+        const expectedChainId = parseInt(CONFIG.CHAIN_ID, 16);
+        if (network.chainId !== expectedChainId) {
+            console.log(`Wrong network. Current: ${network.chainId}, Expected: ${expectedChainId}`);
+            
+            // Try to switch network
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: CONFIG.CHAIN_ID }],
+                });
+            } catch (switchError) {
+                console.log("Failed to switch network:", switchError);
+                
+                // If switch fails, try to add the network
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: CONFIG.CHAIN_ID,
+                                chainName: 'Kaia Kairos Testnet',
+                                nativeCurrency: {
+                                    name: 'KAIA',
+                                    symbol: 'KAIA',
+                                    decimals: 18
+                                },
+                                rpcUrls: ['https://public-en-kairos.node.kaia.io'],
+                                blockExplorerUrls: ['https://kairos.kaiascan.io']
+                            }]
+                        });
+                    } catch (addError) {
+                        console.error("Failed to add network:", addError);
+                        showToast("Please add Kaia Kairos network to MetaMask", "error");
+                        setActionsEnabled(false);
+                        setDisconnectedUI();
+                        return;
+                    }
+                } else {
+                    showToast(`Please switch to Kaia Kairos network (Chain ID: ${expectedChainId})`, "error");
+                    setActionsEnabled(false);
+                    setDisconnectedUI();
+                    return;
+                }
+            }
+        }
+
+        // Initialize signer and contracts
+        state.signer = state.provider.getSigner();
+        state.userAddress = await state.signer.getAddress();
+        
+        console.log("User address:", state.userAddress);
+        
+        state.vaultContract = new ethers.Contract(CONFIG.VAULT_ADDRESS, CONFIG.VAULT_ABI, state.signer);
+        state.usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, CONFIG.USDT_ABI, state.signer);
+
+        // Fetch decimals
+        try {
+            const decimals = await state.usdtContract.decimals();
+            state.decimals = Number(decimals);
+            console.log("Token decimals:", state.decimals);
+        } catch (err) {
+            console.error("Failed to fetch decimals, using default 18:", err);
+            state.decimals = 18;
+        }
+
+        setConnectedUI(state.userAddress);
+        setActionsEnabled(true);
+        
+        showToast("Wallet connected successfully! 🎉", "success");
+        
+        // Update UI after successful connection
+        await updateUI();
+        
+        // Refresh the current tab to ensure proper display
+        const activeSection = document.querySelector('.section.active');
+        if (activeSection) {
+            const sectionId = activeSection.id;
+            const tabButton = document.querySelector('footer button.active').id;
+            showTab(sectionId, tabButton);
+        }
+        
+    } catch (err) {
+        console.error("Wallet connection failed:", err);
+        
+        let errorMessage = "Wallet connection failed";
+        
+        if (err.code === 4001) {
+            errorMessage = "Wallet connection rejected by user";
+        } else if (err.code === -32002) {
+            errorMessage = "Wallet connection request already pending";
+        } else if (err.message.includes("No Web3 provider")) {
+            errorMessage = "Please install MetaMask or use a Web3 browser";
+        } else if (err.message.includes("network")) {
+            errorMessage = "Network connection error. Please check your connection";
+        }
+        
+        showToast(errorMessage, "error");
+        setActionsEnabled(false);
+        setDisconnectedUI();
+    }
+}
+
+function disconnectWallet() {
+    // Reset state
+    state.provider = null;
+    state.signer = null;
+    state.vaultContract = null;
+    state.usdtContract = null;
+    state.userAddress = null;
+    state.walletBal = ethers.BigNumber.from(0);
+    state.stakedBal = ethers.BigNumber.from(0);
+    state.pendingRewards = ethers.BigNumber.from(0);
+    state.completedQuests = {};
+    state.apyMultiplier = 1.00;
+    state.claimsCount = 0;
+    state.nextRewardTimestamp = 0;
+
+    // Update UI
+    setDisconnectedUI();
+    setActionsEnabled(false);
+    showToast("Wallet disconnected successfully!", "success");
+}
+
+// --- UI UPDATE FUNCTIONS ---
+function setConnectedUI(address) {
+    const shortAddress = `${address.substring(0, 6)}...${address.slice(-4)}`;
+    document.getElementById("connectBtn").innerText = shortAddress;
+    document.getElementById("connectBtn").classList.add("connected");
+    document.getElementById("walletAddr").innerText = shortAddress;
+    document.getElementById("disconnectBtn").style.display = "inline-block";
+    // Force reflow for header
+    const header = document.querySelector('header');
+    header.style.display = 'none';
+    header.offsetHeight;
+    header.style.display = 'flex';
+}
+
+function setDisconnectedUI() {
+    document.getElementById("connectBtn").innerText = "Connect";
+    document.getElementById("connectBtn").classList.remove("connected");
+    document.getElementById("walletAddr").innerText = "Not Connected";
+    document.getElementById("disconnectBtn").style.display = "none";
+
+    document.getElementById("walletBal").innerText = "0.00";
+    document.getElementById("stakedBal").innerText = "0.00";
+    document.getElementById("staked").innerText = "0.00";
+    document.getElementById("rewards2").innerText = "0.0000";
+    document.getElementById("dashRewards").innerText = "0.0000";
+    document.getElementById("currentApy").innerText = "0.00%";
+    document.getElementById("nextRewardTime").innerText = "--";
+    document.getElementById("apyMultiplier").innerText = "1.00x";
+    
+    updateQuestButtons(true);
+}
+
+function setActionsEnabled(enabled) {
+    document.querySelectorAll(".stake-buttons button").forEach(btn => btn.disabled = !enabled);
+    document.getElementById("customStake").disabled = !enabled;
+    document.getElementById("stakeCustomBtn").disabled = !enabled;
+    document.getElementById("customWithdraw").disabled = !enabled;
+    document.getElementById("withdrawCustomBtn").disabled = !enabled;
+    document.getElementById("claimBtn").disabled = !enabled;
+    updateQuestButtons(!enabled);
+    document.getElementById("aiInput").disabled = !enabled;
+    document.getElementById("sendAiBtn").disabled = !enabled;
+}
+
+async function updateUI() {
+    if (!state.userAddress) return;
+
+    try {
+        const [walletBalRaw, stakedBalRaw, pendingRewardsRaw] = await Promise.all([
+            state.usdtContract.balanceOf(state.userAddress),
+            state.vaultContract.balanceOf(state.userAddress),
+            state.vaultContract.pendingRewards(state.userAddress)
+        ]);
+
+        state.walletBal = walletBalRaw;
+        state.stakedBal = stakedBalRaw;
+        state.pendingRewards = pendingRewardsRaw;
+
+        const dec = state.decimals;
+        document.getElementById("walletBal").innerText = parseFloat(ethers.utils.formatUnits(state.walletBal, dec)).toFixed(2);
+        document.getElementById("stakedBal").innerText = parseFloat(ethers.utils.formatUnits(state.stakedBal, dec)).toFixed(2);
+        document.getElementById("staked").innerText = parseFloat(ethers.utils.formatUnits(state.stakedBal, dec)).toFixed(2);
+        document.getElementById("rewards2").innerText = parseFloat(ethers.utils.formatUnits(state.pendingRewards, dec)).toFixed(4);
+        document.getElementById("dashRewards").innerText = parseFloat(ethers.utils.formatUnits(state.pendingRewards, dec)).toFixed(4);
+
+        await updateQuestStates();
+        updateApyMetrics();
+        updateNextRewardTime();
+    } catch (err) {
+        console.error("Failed to update UI:", err);
+        showToast("Failed to update data. Please refresh.", "error");
+    }
+}
+
+async function updateQuestStates() {
+    if (!state.userAddress || !state.vaultContract) return;
+    
+    try {
+        const questResults = await Promise.allSettled([
+            state.vaultContract.hasCompleted(state.userAddress, CONFIG.QUEST_IDS.HOLD_24H),
+            state.vaultContract.hasCompleted(state.userAddress, CONFIG.QUEST_IDS.STAKE_1000),
+            state.vaultContract.hasCompleted(state.userAddress, CONFIG.QUEST_IDS.LOYALTY_7D),
+            state.vaultContract.hasCompleted(state.userAddress, CONFIG.QUEST_IDS.ACTIVE_USER)
+        ]);
+
+        questResults.forEach((result, index) => {
+            const questId = Object.values(CONFIG.QUEST_IDS)[index];
+            state.completedQuests[questId] = result.status === 'fulfilled' ? result.value : false;
+        });
+
+        updateQuestButtons();
+        calculateApyMultiplier();
+    } catch (err) {
+        console.error("Failed to update quest states:", err);
+    }
+}
+
+function updateQuestButtons(forceDisabled = false) {
+    const questButtons = [
+        { id: 'questHold', questId: CONFIG.QUEST_IDS.HOLD_24H },
+        { id: 'questStake', questId: CONFIG.QUEST_IDS.STAKE_1000 },
+        { id: 'questLoyalty', questId: CONFIG.QUEST_IDS.LOYALTY_7D },
+        { id: 'questActive', questId: CONFIG.QUEST_IDS.ACTIVE_USER }
+    ];
+
+    questButtons.forEach(({ id, questId }) => {
+        const btn = document.getElementById(id);
+        const isCompleted = state.completedQuests[questId];
+        
+        if (forceDisabled) {
+            btn.disabled = true;
+            btn.style.backgroundColor = '#cbd5e1';
+            btn.style.color = '#94a3b8';
+        } else {
+            btn.disabled = isCompleted;
+            if (isCompleted) {
+                btn.style.backgroundColor = '#10b981';
+                btn.style.color = '#ffffff';
+                btn.innerHTML = btn.innerHTML.replace(/⏳|💰|🗓️|⚡/, '✅');
+            }
+        }
+    });
+}
+
+function calculateApyMultiplier() {
+    let totalBoost = 0;
+    Object.entries(state.completedQuests).forEach(([questId, completed]) => {
+        if (completed) {
+            totalBoost += CONFIG.QUEST_APY_BOOSTS[questId] || 0;
+        }
+    });
+    state.apyMultiplier = 1 + (totalBoost / 100);
+}
+
+function updateApyMetrics() {
+    const currentApy = (state.baseApy * state.apyMultiplier).toFixed(2);
+    document.getElementById("currentApy").innerText = `${currentApy}%`;
+    document.getElementById("apyMultiplier").innerText = `${state.apyMultiplier.toFixed(2)}x`;
+}
+
+function updateNextRewardTime() {
+    // Placeholder logic for next reward time
+    // In a real implementation, this would be calculated based on staking timestamp and reward frequency
+    const now = Date.now();
+    const nextReward = now + (24 * 60 * 60 * 1000); // 24 hours from now
+    const hoursLeft = Math.ceil((nextReward - now) / (60 * 60 * 1000));
+    
+    if (parseFloat(ethers.utils.formatUnits(state.stakedBal, state.decimals)) > 0) {
+        document.getElementById("nextRewardTime").innerText = `${hoursLeft}h`;
+    } else {
+        document.getElementById("nextRewardTime").innerText = "--";
+    }
+}
+
+// --- STAKING FUNCTIONS ---
+function setButtonLoading(button, isLoading) {
+    if (isLoading) {
+        button.disabled = true;
+        button.innerHTML = button.innerHTML.split('<div')[0] + '<div class="spinner"></div>';
+    } else {
+        button.disabled = false;
+        button.innerHTML = button.innerHTML.split('<div')[0];
+    }
+}
+
+async function stakeOnChain(amount, button) {
+    if (!state.userAddress) {
+        showToast("Please connect your wallet first!", "error");
+        return;
+    }
+
+    setButtonLoading(button, true);
+    
+    try {
+        const amountWei = ethers.utils.parseUnits(amount.toString(), state.decimals);
+        
+        // Check allowance
+        const allowance = await state.usdtContract.allowance?.(state.userAddress, CONFIG.VAULT_ADDRESS) || ethers.BigNumber.from(0);
+        
+        if (allowance.lt(amountWei)) {
+            showToast("Approving USDT...", "success");
+            const approveTx = await state.usdtContract.approve(CONFIG.VAULT_ADDRESS, ethers.constants.MaxUint256);
+            await approveTx.wait();
+        }
+        
+        showToast("Staking tokens...", "success");
+        const stakeTx = await state.vaultContract.deposit(amountWei);
+        await stakeTx.wait();
+        
+        showToast(`Successfully staked ${amount} USDT!`, "success");
+        await updateUI();
+        
+    } catch (err) {
+        console.error("Staking failed:", err);
+        showToast("Staking failed. Please try again.", "error");
+    }
+    
+    setButtonLoading(button, false);
+}
+
+async function stakeCustom() {
+    const input = document.getElementById("customStake");
+    const button = document.getElementById("stakeCustomBtn");
+    const amount = parseFloat(input.value);
+    
+    if (!amount || amount <= 0) {
+        showToast("Please enter a valid amount!", "error");
+        return;
+    }
+    
+    await stakeOnChain(amount, button);
+    input.value = ""; // Clear input after successful transaction
+}
+
+async function withdrawCustom() {
+    const input = document.getElementById("customWithdraw");
+    const button = document.getElementById("withdrawCustomBtn");
+    const amount = parseFloat(input.value);
+    
+    if (!amount || amount <= 0) {
+        showToast("Please enter a valid amount!", "error");
+        return;
+    }
+    
+    if (!state.userAddress) {
+        showToast("Please connect your wallet first!", "error");
+        return;
+    }
+
+    const maxWithdraw = parseFloat(ethers.utils.formatUnits(state.stakedBal, state.decimals));
+    if (amount > maxWithdraw) {
+        showToast(`Cannot withdraw more than staked amount (${maxWithdraw.toFixed(2)} USDT)!`, "error");
+        return;
+    }
+
+    setButtonLoading(button, true);
+    
+    try {
+        const amountWei = ethers.utils.parseUnits(amount.toString(), state.decimals);
+        showToast("Withdrawing tokens...", "success");
+        const withdrawTx = await state.vaultContract.withdraw(amountWei);
+        await withdrawTx.wait();
+        
+        showToast(`Successfully withdrew ${amount} USDT!`, "success");
+        await updateUI();
+        input.value = ""; // Clear input after successful transaction
+        
+    } catch (err) {
+        console.error("Withdrawal failed:", err);
+        showToast("Withdrawal failed. Please try again.", "error");
+    }
+    
+    setButtonLoading(button, false);
+}
+
+// --- REWARDS FUNCTIONS ---
+async function claimRewards() {
+    if (!state.userAddress) {
+        showToast("Please connect your wallet first!", "error");
+        return;
+    }
+
+    const claimBtn = document.getElementById("claimBtn");
+    setButtonLoading(claimBtn, true);
+    
+    try {
+        showToast("Claiming rewards...", "success");
+        const claimTx = await state.vaultContract.claim();
+        await claimTx.wait();
+        
+        showToast("Rewards claimed successfully! 🎉", "success");
+        showConfetti(); // Trigger confetti animation
+        
+        state.claimsCount += 1; // Increment claims counter
+        await updateUI();
+        
+    } catch (err) {
+        console.error("Claim failed:", err);
+        showToast("Claim failed. Please try again.", "error");
+    }
+    
+    setButtonLoading(claimBtn, false);
+}
+
+function showConfetti() {
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd'];
+    
+    for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 3 + 's';
+        confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        document.body.appendChild(confetti);
+        
+        setTimeout(() => {
+            confetti.remove();
+        }, 5000);
+    }
+}
+
+// --- QUEST FUNCTIONS ---
+async function completeHoldQuest() {
+    await completeQuest(CONFIG.QUEST_IDS.HOLD_24H, "completeHold24hQuest", "Hold 24h quest completed! +5% APY boost activated! 🚀");
+}
+
+async function completeStakeQuest() {
+    await completeQuest(CONFIG.QUEST_IDS.STAKE_1000, "completeStake1000Quest", "Stake 1000+ quest completed! +7% APY boost activated! 💰");
+}
+
+async function completeLoyaltyQuest() {
+    await completeQuest(CONFIG.QUEST_IDS.LOYALTY_7D, "completeLoyalty7dQuest", "7-Day loyalty quest completed! +10% APY boost activated! 🗓️");
+}
+
+async function completeActiveQuest() {
+    await completeQuest(CONFIG.QUEST_IDS.ACTIVE_USER, "completeActiveUserQuest", "Active user quest completed! +8% APY boost activated! ⚡");
+}
+
+async function completeQuest(questId, contractMethod, successMessage) {
+    if (!state.userAddress) {
+        showToast("Please connect your wallet first!", "error");
+        return;
+    }
+
+    if (state.completedQuests[questId]) {
+        showToast("Quest already completed!", "error");
+        return;
+    }
+
+    try {
+        showToast("Completing quest...", "success");
+        const questTx = await state.vaultContract[contractMethod]();
+        await questTx.wait();
+        
+        state.completedQuests[questId] = true;
+        showToast(successMessage, "success");
+        
+        calculateApyMultiplier();
+        updateQuestButtons();
+        updateApyMetrics();
+        
+    } catch (err) {
+        console.error("Quest completion failed:", err);
+        showToast("Quest completion failed. Please try again.", "error");
+    }
+}
+
+// --- AI COPILOT FUNCTIONS ---
+async function askAI() {
+    const input = document.getElementById("aiInput");
+    const question = input.value.trim();
+    
+    if (!question) return;
+    
+    const chatbox = document.getElementById("chatbox");
+    
+    // Add user message
+    const userMsg = document.createElement("div");
+    userMsg.className = "user-msg";
+    userMsg.textContent = question;
+    chatbox.appendChild(userMsg);
+    
+    input.value = "";
+    chatbox.scrollTop = chatbox.scrollHeight;
+    
+    // Show typing indicator
+    const typingMsg = document.createElement("div");
+    typingMsg.className = "ai-msg";
+    typingMsg.textContent = "AI is thinking...";
+    chatbox.appendChild(typingMsg);
+    chatbox.scrollTop = chatbox.scrollHeight;
+    
+    try {
+        const response = await generateAIResponse(question);
+        chatbox.removeChild(typingMsg);
+        
+        const aiMsg = document.createElement("div");
+        aiMsg.className = "ai-msg";
+        
+        // Check if response includes image generation
+        if (response.includesImage) {
+            aiMsg.innerHTML = response.text + response.imageHTML;
+        } else {
+            aiMsg.textContent = response.text;
+        }
+        
+        chatbox.appendChild(aiMsg);
+        chatbox.scrollTop = chatbox.scrollHeight;
+        
+    } catch (err) {
+        chatbox.removeChild(typingMsg);
+        
+        const errorMsg = document.createElement("div");
+        errorMsg.className = "ai-msg";
+        errorMsg.textContent = "Sorry, I'm having trouble right now. Please try again!";
+        chatbox.appendChild(errorMsg);
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
+}
+
+async function generateAIResponse(question) {
+    const lowerQ = question.toLowerCase();
+    
+    // Get current user data for personalized responses
+    const stakedAmount = parseFloat(ethers.utils.formatUnits(state.stakedBal, state.decimals));
+    const walletBalance = parseFloat(ethers.utils.formatUnits(state.walletBal, state.decimals));
+    const pendingRewards = parseFloat(ethers.utils.formatUnits(state.pendingRewards, state.decimals));
+    const completedQuestCount = Object.values(state.completedQuests).filter(Boolean).length;
+    
+    // Image generation keywords
+    const imageKeywords = ['draw', 'create', 'generate', 'make', 'show me', 'picture', 'image', 'art'];
+    const shouldGenerateImage = imageKeywords.some(keyword => lowerQ.includes(keyword));
+    
+    if (shouldGenerateImage) {
+        // Simulate image generation
+        const imagePrompt = question.replace(/draw|create|generate|make|show me|picture|image|art/gi, '').trim();
+        const imageHTML = `<img src="data:image/svg+xml,%3Csvg width='200' height='150' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='%23e8f5e9'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-family='Arial' font-size='14'%3EAI Generated: ${imagePrompt || 'Creative Art'}%3C/text%3E%3C/svg%3E" alt="AI Generated Image">`;
+        
+        return {
+            includesImage: true,
+            text: `I've created an image for you! Here's my interpretation of "${imagePrompt}":`,
+            imageHTML: imageHTML
+        };
+    }
+    
+    // Personalized responses based on user state
+    if (lowerQ.includes('apy') || lowerQ.includes('yield') || lowerQ.includes('return')) {
+        const currentAPY = (state.baseApy * state.apyMultiplier).toFixed(2);
+        return {
+            includesImage: false,
+            text: `Your current APY is ${currentAPY}% with a ${state.apyMultiplier.toFixed(2)}x multiplier! You've completed ${completedQuestCount} quests. ${completedQuestCount < 4 ? 'Complete more quests to boost your APY further!' : 'Amazing! You\'ve completed all quests for maximum yield!'}`
+        };
+    }
+    
+    if (lowerQ.includes('stake') || lowerQ.includes('deposit')) {
+        if (stakedAmount === 0) {
+            return {
+                includesImage: false,
+                text: `You haven't staked anything yet! With ${walletBalance.toFixed(2)} USDT in your wallet, you could start earning ${state.baseApy}% APY. Try starting with a smaller amount to test the waters!`
+            };
+        } else {
+            return {
+                includesImage: false,
+                text: `You have ${stakedAmount.toFixed(2)} USDT staked, earning ${(state.baseApy * state.apyMultiplier).toFixed(2)}% APY! Consider staking more of your ${walletBalance.toFixed(2)} USDT wallet balance to maximize earnings.`
+            };
+        }
+    }
+    
+    if (lowerQ.includes('quest') || lowerQ.includes('mission') || lowerQ.includes('boost')) {
+        const uncompletedQuests = Object.entries(state.completedQuests)
+            .filter(([_, completed]) => !completed)
+            .map(([questId, _]) => questId);
+            
+        if (uncompletedQuests.length === 0) {
+            return {
+                includesImage: false,
+                text: `Congratulations! You've completed all quests and achieved maximum APY multiplier of ${state.apyMultiplier.toFixed(2)}x! Keep staking to maximize your rewards.`
+            };
+        } else {
+            const nextQuest = uncompletedQuests[0];
+            return {
+                includesImage: false,
+                text: `You have ${uncompletedQuests.length} quests remaining. Focus on "${nextQuest}" next for additional APY boost! Each quest completion increases your earning potential.`
+            };
+        }
+    }
+    
+    if (lowerQ.includes('reward') || lowerQ.includes('claim')) {
+        if (pendingRewards === 0) {
+            return {
+                includesImage: false,
+                text: `No pending rewards yet. ${stakedAmount === 0 ? 'Start staking to begin earning rewards!' : 'Keep your tokens staked to accumulate rewards over time.'}`
+            };
+        } else {
+            return {
+                includesImage: false,
+                text: `You have ${pendingRewards.toFixed(4)} USDT pending rewards! Don't forget to claim them. You've made ${state.claimsCount} claims so far.`
+            };
+        }
+    }
+    
+    if (lowerQ.includes('balance') || lowerQ.includes('wallet')) {
+        return {
+            includesImage: false,
+            text: `Wallet: ${walletBalance.toFixed(2)} USDT | Staked: ${stakedAmount.toFixed(2)} USDT | Pending: ${pendingRewards.toFixed(4)} USDT. Total portfolio value: ${(walletBalance + stakedAmount + pendingRewards).toFixed(2)} USDT`
+        };
+    }
+    
+    // Generic helpful responses
+    const responses = [
+        `Great question! With your current setup (${stakedAmount.toFixed(2)} USDT staked, ${completedQuestCount}/4 quests completed), you're earning ${(state.baseApy * state.apyMultiplier).toFixed(2)}% APY. Keep staking and completing quests for maximum returns!`,
+        `I'm here to help you maximize your DeFi earnings! You currently have a ${state.apyMultiplier.toFixed(2)}x APY multiplier. Would you like tips on staking strategies or quest completion?`,
+        `Your YieldQuest journey is looking good! ${stakedAmount > 0 ? `You're actively staking ${stakedAmount.toFixed(2)} USDT.` : 'Consider staking some USDT to start earning!'} Complete more quests to boost your APY!`,
+        `As your AI copilot, I recommend focusing on quest completion for APY boosts. You've completed ${completedQuestCount}/4 quests. Each adds significant yield to your staking rewards!`
+    ];
+    
+    return {
+        includesImage: false,
+        text: responses[Math.floor(Math.random() * responses.length)]
+    };
+}
+
+// --- TAB NAVIGATION ---
+function showTab(sectionId, tabId) {
+    // Hide all sections explicitly
+    document.querySelectorAll('.section').forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    const selectedSection = document.getElementById(sectionId);
+    selectedSection.classList.add('active');
+    selectedSection.style.display = 'block';
+    
+    // Update tab buttons
+    document.querySelectorAll('footer button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(tabId).classList.add('active');
+    
+    // Update UI if switching to dashboard
+    if (sectionId === 'dashboard' && state.userAddress) {
+        updateUI();
+    }
+}
+
+// --- UTILITY FUNCTIONS ---
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.innerText = message;
+    toast.className = `toast ${type} show`;
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize any additional UI components
+    console.log('YieldQuest Mini-App Initialized');
+    
+    // Add welcome message to AI chat
+    const chatbox = document.getElementById("chatbox");
+    const welcomeMsg = document.createElement("div");
+    welcomeMsg.className = "ai-msg";
+    welcomeMsg.textContent = "👋 Hi! I'm your DeFi copilot. Ask me about staking, quests, APY, or even request drawings!";
+    chatbox.appendChild(welcomeMsg);
+});
+</script>
+</body>
+</html>
